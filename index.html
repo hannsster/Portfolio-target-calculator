@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Portfolio target calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { color-scheme: dark; }
+        body {
+            background-color: #050505; background-size: cover; background-position: center;
+            font-family: -apple-system, system-ui, sans-serif;
+            height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; transition: background-image 1.2s ease-in-out;
+        }
+
+        #main-container {
+            background: rgba(10, 10, 10, 0.75); backdrop-filter: blur(50px) saturate(200%);
+            -webkit-backdrop-filter: blur(50px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 40px;
+            display: flex; width: 1150px; height: 850px; 
+            min-width: 950px; min-height: 750px;
+            box-shadow: 0 50px 120px rgba(0,0,0,0.9);
+            /* RESIZE ENABLED */
+            resize: both; overflow: hidden; position: relative;
+        }
+
+        /* STRIKE THE ARROWS FROM ALL NUMBER INPUTS */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        .sidebar { background: rgba(0, 0, 0, 0.3); border-right: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-input { 
+            background: rgba(255, 255, 255, 0.03) !important; color: white !important; 
+            border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px; outline: none;
+            font-size: 14px !important;
+        }
+
+        .mode-pill {
+            display: flex; background: rgba(255,255,255,0.05); border-radius: 100px;
+            padding: 4px; margin-bottom: 24px; position: relative; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .mode-btn {
+            flex: 1; padding: 8px 0; border-radius: 100px; font-size: 11px; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer; text-align: center;
+            z-index: 2; transition: color 0.3s;
+        }
+        .mode-btn.active { color: black; }
+        .mode-btn.inactive { color: rgba(255,255,255,0.3); }
+        .mode-slider {
+            position: absolute; top: 4px; bottom: 4px; width: calc(50% - 4px);
+            background: white; border-radius: 100px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .live-price-tag { 
+            background: rgba(255,255,255,0.12); 
+            padding: 4px 10px; 
+            border-radius: 8px; 
+            font-weight: 800; 
+            font-size: 12px; 
+            color: #fff;
+            font-family: ui-monospace, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-container">
+        <div class="w-[380px] sidebar p-8 flex flex-col relative h-full">
+            <h2 class="text-2xl font-black text-white/90 tracking-tighter uppercase italic mb-8">Portfolio</h2>
+            
+            <div class="mode-pill">
+                <div id="slider" class="mode-slider"></div>
+                <div id="btn-dollars" onclick="setMode('dollars')" class="mode-btn active">Dollars</div>
+                <div id="btn-shares" onclick="setMode('shares')" class="mode-btn inactive">Shares</div>
+            </div>
+
+            <div class="relative mb-6">
+                <input type="text" id="tickerSearch" placeholder="Add Ticker..." class="glass-input w-full px-4 py-4">
+                <div id="searchResults" class="absolute top-[70px] left-0 right-0 bg-[#111] border border-white/10 rounded-xl z-50 hidden shadow-2xl overflow-y-auto max-h-[350px]"></div>
+            </div>
+            
+            <div id="portfolioList" class="flex-1 overflow-y-auto space-y-5 pr-2"></div>
+            
+            <div class="mt-6 space-y-3">
+                <button onclick="pickFolder()" class="w-full p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all flex items-center justify-center gap-2">
+                    📁 Set Wallpaper Folder
+                </button>
+                <button onclick="shuffleBG()" class="w-full p-5 bg-white/10 hover:bg-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-colors">
+                    Switch Theme
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 p-10 flex flex-col h-full overflow-y-auto">
+            <div class="flex space-x-6 mb-8">
+                <div class="flex-1 bg-white/5 rounded-3xl p-6 border border-white/5">
+                    <p class="text-[10px] font-black opacity-40 uppercase mb-1 tracking-widest">Holdings Value</p>
+                    <h3 id="stat-networth" class="text-4xl font-light">$0.00</h3>
+                </div>
+                <div class="flex-1 bg-white/5 rounded-3xl p-6 border border-white/5">
+                    <p class="text-[10px] font-black opacity-40 uppercase mb-1 tracking-widest">Post-Execution</p>
+                    <h3 id="stat-projected" class="text-4xl font-light text-blue-400">$0.00</h3>
+                </div>
+            </div>
+
+            <div class="mb-12 text-center">
+                <p class="text-[10px] font-black opacity-50 uppercase mb-4 tracking-[0.3em]">Capital to Allocate</p>
+                <div class="bg-black/20 px-8 py-5 rounded-[30px] border border-white/10 w-full max-w-sm mx-auto flex items-center justify-center shadow-2xl">
+                    <span class="text-3xl opacity-30 mr-4 font-light">$</span>
+                    <input type="number" id="deposit-input" oninput="updateStats()" placeholder="0.00" class="text-5xl font-medium w-full text-center focus:outline-none bg-transparent">
+                </div>
+            </div>
+
+            <button onclick="calculateRebalance()" class="bg-white text-black w-full py-6 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-[1.01] transition-all shadow-xl">
+                Generate Execution Plan
+            </button>
+            
+            <div id="resultsArea" class="mt-8 space-y-6 pb-4"></div>
+            <div id="confirmArea" class="mt-4 hidden pb-10">
+                <button onclick="applyAllocation()" class="w-full py-6 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-green-500/20 transition-all">
+                    Apply Plan to Holdings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const { ipcRenderer } = require('electron');
+    let portfolio = JSON.parse(localStorage.getItem('rebalancer_data')) || {};
+    let bgFiles = JSON.parse(localStorage.getItem('bg_files')) || [];
+    let inputMode = 'dollars'; 
+    let currentThemeColors = ['#FFFFFF'];
+    let lastCalculation = {};
+
+    function safeNum(val) { const n = parseFloat(val); return isNaN(n) ? 0 : n; }
+
+    async function pickFolder() {
+        const result = await ipcRenderer.invoke('select-folder');
+        if (result && result.files.length > 0) {
+            bgFiles = result.files;
+            localStorage.setItem('bg_files', JSON.stringify(bgFiles));
+            shuffleBG();
+        }
+    }
+
+    function shuffleBG() {
+        if (bgFiles.length === 0) return;
+        const randomImg = bgFiles[Math.floor(Math.random() * bgFiles.length)];
+        const formattedPath = `file://${randomImg.replace(/\\/g, '/')}`;
+        document.body.style.backgroundImage = `url('${formattedPath}')`;
+        extractThemeColors(formattedPath);
+    }
+
+    function extractThemeColors(url) {
+        const img = new Image(); img.src = url;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            canvas.width = img.width; canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            const zones = [{x:50,y:50},{x:img.width-150,y:50},{x:50,y:img.height-150},{x:img.width/2,y:img.height/2}];
+            currentThemeColors = zones.map(z => {
+                const data = ctx.getImageData(z.x, z.y, 10, 10).data;
+                return `rgb(${data[0]}, ${data[1]}, ${data[2]})`;
+            });
+            reassignTickerColors();
+            saveAndRender();
+        };
+    }
+
+    function reassignTickerColors() {
+        Object.keys(portfolio).forEach((sym, i) => { 
+            portfolio[sym].color = currentThemeColors[i % currentThemeColors.length] || '#fff'; 
+        });
+    }
+
+    async function getLivePrice(sym) {
+        try {
+            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + sym)}`);
+            const data = await res.json();
+            return data.chart.result[0].meta.regularMarketPrice;
+        } catch (e) { return portfolio[sym]?.price || 0; }
+    }
+
+    function setMode(mode) {
+        inputMode = mode;
+        document.getElementById('slider').style.transform = mode === 'dollars' ? 'translateX(0)' : 'translateX(100%)';
+        document.getElementById('btn-dollars').className = `mode-btn ${mode === 'dollars' ? 'active' : 'inactive'}`;
+        document.getElementById('btn-shares').className = `mode-btn ${mode === 'shares' ? 'active' : 'inactive'}`;
+        saveAndRender();
+    }
+
+    async function addTicker(s) {
+        const price = await getLivePrice(s);
+        portfolio[s] = { target: 0, shares: 0, price: price || 0, color: '#fff' };
+        document.getElementById('tickerSearch').value = '';
+        document.getElementById('searchResults').classList.add('hidden');
+        reassignTickerColors();
+        saveAndRender();
+    }
+
+    function updateHolding(sym, val) {
+        const p = portfolio[sym];
+        const num = safeNum(val);
+        if (inputMode === 'shares') { p.shares = num; } 
+        else { p.shares = p.price > 0 ? (num / p.price) : 0; }
+        updateStats();
+        localStorage.setItem('rebalancer_data', JSON.stringify(portfolio));
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('rebalancer_data', JSON.stringify(portfolio));
+        const list = document.getElementById('portfolioList');
+        let html = "";
+        Object.entries(portfolio).forEach(([sym, d]) => {
+            const curVal = (safeNum(d.shares) * safeNum(d.price)).toFixed(2);
+            const displayVal = inputMode === 'shares' ? d.shares : curVal;
+            html += `
+            <div class="p-6 rounded-3xl bg-white/5 border-l-[6px] transition-all" style="border-left-color: ${d.color};">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="font-black text-sm uppercase tracking-widest" style="color: ${d.color}">${sym}</span>
+                    <span class="bg-white/10 px-3 py-1 rounded-lg text-[10px] font-mono font-bold text-white/90 border border-white/5">$${safeNum(d.price).toFixed(2)}</span>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-1/4">
+                        <label class="text-[9px] uppercase font-black opacity-40 block mb-1">Target %</label>
+                        <input type="number" oninput="portfolio['${sym}'].target=safeNum(this.value); updateStats()" value="${d.target}" class="glass-input w-full p-3 text-center font-bold">
+                    </div>
+                    <div class="w-3/4">
+                        <label class="text-[9px] uppercase font-black opacity-40 block mb-1">${inputMode.toUpperCase()}</label>
+                        <input type="number" oninput="updateHolding('${sym}', this.value)" value="${displayVal == 0 ? '' : displayVal}" placeholder="0.00" class="glass-input w-full p-3 px-4 font-mono">
+                    </div>
+                    <button onclick="delete portfolio['${sym}']; saveAndRender()" class="opacity-10 hover:opacity-100 p-2 text-sm transition-opacity">✕</button>
+                </div>
+            </div>`;
+        });
+        list.innerHTML = html || '<p class="text-center opacity-20 text-[10px] mt-10 uppercase tracking-widest">Add a ticker to start</p>';
+        updateStats();
+    }
+
+    function updateStats() {
+        const dep = safeNum(document.getElementById('deposit-input').value);
+        const net = Object.values(portfolio).reduce((acc, d) => acc + (safeNum(d.shares) * safeNum(d.price)), 0);
+        document.getElementById('stat-networth').innerText = `$${net.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+        document.getElementById('stat-projected').innerText = `$${(net + dep).toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    }
+
+    async function calculateRebalance() {
+        const btn = event.currentTarget;
+        const originalText = btn.innerText;
+        btn.innerText = "SYNCING MARKET DATA...";
+        btn.disabled = true;
+        
+        const deposit = safeNum(document.getElementById('deposit-input').value);
+        if (deposit <= 0) {
+            alert("Please enter a deposit amount first.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        // 1. Refresh prices
+        for (let sym in portfolio) { portfolio[sym].price = await getLivePrice(sym); }
+        
+        const currentNet = Object.values(portfolio).reduce((acc, d) => acc + (safeNum(d.shares) * safeNum(d.price)), 0);
+        const totalFuture = currentNet + deposit;
+        
+        // 2. Calculate the "Gaps" (How much $ each stock is underweight)
+        let gaps = {};
+        let totalGap = 0;
+
+        Object.entries(portfolio).forEach(([sym, d]) => {
+            const idealDollar = totalFuture * (safeNum(d.target) / 100);
+            const currentDollar = safeNum(d.shares) * safeNum(d.price);
+            const diff = idealDollar - currentDollar;
+
+            if (diff > 0) {
+                gaps[sym] = diff;
+                totalGap += diff;
+            }
+        });
+
+        // 3. Scale the deposit across those gaps
+        const resArea = document.getElementById('resultsArea');
+        lastCalculation = {}; 
+        let html = '<p class="text-[10px] font-black opacity-40 uppercase tracking-[0.4em] mb-8 text-center">Execution Plan</p>';
+        
+        Object.entries(portfolio).forEach(([sym, d]) => {
+            if (gaps[sym]) {
+                const buyAmount = (gaps[sym] / totalGap) * deposit;
+                const buyShares = d.price > 0 ? (buyAmount / d.price) : 0;
+
+                const currentDollar = safeNum(d.shares) * safeNum(d.price);
+                const postTradeDollar = currentDollar + buyAmount;
+                const postTradePct = totalFuture > 0 ? (postTradeDollar / totalFuture * 100) : 0;
+
+                const currentPct = totalFuture > 0 ? (currentDollar / totalFuture * 100) : 0;
+                const buyPct = (buyAmount / totalFuture * 100);
+
+                lastCalculation[sym] = buyShares;
+                
+                html += `
+                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/10 mb-4">
+                        <div class="flex justify-between items-end mb-6">
+                            <div>
+                                <span class="text-2xl font-black tracking-tighter uppercase block" style="color: ${d.color}">${sym}</span>
+                                <span class="text-[10px] font-mono opacity-40 uppercase">Buying ${buyShares.toFixed(2)} Units</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-3xl font-light text-white block">+$${buyAmount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Plan: ${postTradePct.toFixed(1)}% / Goal: ${d.target}%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="relative w-full h-3 bg-white/5 rounded-full overflow-hidden flex">
+                            <div class="h-full bg-white/20 transition-all" style="width: ${currentPct}%"></div>
+                            <div class="h-full transition-all" style="width: ${buyPct}%; background: ${d.color}; box-shadow: 0 0 15px ${d.color}44;"></div>
+                        </div>
+                        <div class="flex justify-between mt-2 text-[9px] font-black uppercase tracking-widest opacity-30">
+                            <span>Current: ${currentPct.toFixed(1)}%</span>
+                            <span>Target: ${d.target}%</span>
+                        </div>
+                    </div>`;
+            }
+        });
+        
+        btn.innerText = originalText;
+        btn.disabled = false;
+        resArea.innerHTML = html || '<p class="text-center opacity-40 py-10">All targets met. No trades required.</p>';
+        if(Object.keys(lastCalculation).length > 0) document.getElementById('confirmArea').classList.remove('hidden');
+        saveAndRender();
+    }
+
+    function applyAllocation() {
+        for (let sym in lastCalculation) { portfolio[sym].shares = safeNum(portfolio[sym].shares) + lastCalculation[sym]; }
+        document.getElementById('deposit-input').value = "";
+        document.getElementById('resultsArea').innerHTML = "";
+        document.getElementById('confirmArea').classList.add('hidden');
+        saveAndRender();
+    }
+
+    document.getElementById('tickerSearch').addEventListener('input', async (e) => {
+        const q = e.target.value.trim();
+        const resultsDiv = document.getElementById('searchResults');
+
+        if (q.length < 2) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://query2.finance.yahoo.com/v1/finance/search?q=' + q)}`);
+            const data = await res.json();
+            
+            if (data.quotes && data.quotes.length > 0) {
+                resultsDiv.innerHTML = data.quotes.slice(0, 6).map(x => `
+                    <div onclick="addTicker('${x.symbol}')" class="p-4 hover:bg-white/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors">
+                        <div class="flex justify-between font-black text-white uppercase text-sm">
+                            <span>${x.symbol}</span>
+                            <span class="opacity-30 text-[9px]">${x.exchange}</span>
+                        </div>
+                        <div class="text-[10px] text-white/40 truncate mt-1">${x.shortname || ''}</div>
+                    </div>
+                `).join('');
+                resultsDiv.classList.remove('hidden');
+            } else {
+                resultsDiv.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error("Search failed", err);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#tickerSearch') && !e.target.closest('#searchResults')) {
+            document.getElementById('searchResults').classList.add('hidden');
+        }
+    });
+
+    if (bgFiles.length > 0) shuffleBG();
+    saveAndRender();
+</script>
+</body>
+</html>
