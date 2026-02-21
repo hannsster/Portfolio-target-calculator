@@ -1,4 +1,5 @@
-Overview
+Overview:
+
 A lightweight, privacy-focused rebalancing tool designed to help you calculate exact share purchases for your portfolio. This tool does not require your login credentials and keeps all data locally on your machine.
 
 How to Use
