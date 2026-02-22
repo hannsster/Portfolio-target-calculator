@@ -21,7 +21,12 @@
     "forge": {
       "packagerConfig": {
         "asar": true,
-        "icon": "./icon"
+        "ignore": [
+          "/out($|/)",
+          "/dist($|/)",
+          "/.git($|/)",
+          "/start ibkr.bat"
+        ]
       },
       "makers": [
         {
