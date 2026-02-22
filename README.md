@@ -1,4 +1,4 @@
-# Portfolio Rebalancer Pro
+# Portfolio Rebalancer
 
 A lightweight, privacy-focused rebalancing tool designed to help you calculate exact share purchases for your portfolio. This tool **does not require login credentials** and keeps all data locally on your machine.
 
